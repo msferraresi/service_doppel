@@ -1,7 +1,9 @@
 import json
 import re
-from typing import Any, Optional
+from typing import Any
+
 from sqlalchemy.orm import Session
+
 from src.db.models import Endpoint, Service
 
 
@@ -13,7 +15,7 @@ def pattern_to_regex(pattern: str) -> re.Pattern:
 
 def match_request_endpoint(
     db: Session, method: str, requested_path: str
-) -> tuple[Optional[Endpoint], dict[str, Any]]:
+) -> tuple[Endpoint | None, dict[str, Any]]:
     endpoints = (
         db.query(Endpoint)
         .join(Service)
@@ -33,7 +35,7 @@ def match_request_endpoint(
 
 def validate_incoming_payload(
     endpoint: Endpoint,
-    raw_body: Optional[str],
+    raw_body: str | None,
     form_fields: dict,
     files_info: dict,
     query_params: dict,

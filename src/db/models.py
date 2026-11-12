@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -74,7 +74,7 @@ class RequestLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     endpoint_id = Column(Integer, ForeignKey("endpoints.id"), nullable=True)
-    received_at = Column(DateTime, default=datetime.utcnow)
+    received_at = Column(DateTime, default=lambda: datetime.now(UTC))
     method = Column(String(10), nullable=False)
     path = Column(String(255), nullable=False)
     headers = Column(JSON, nullable=True)

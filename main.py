@@ -1,11 +1,14 @@
+import contextlib
 import os
 import socket
 import sys
 import threading
 import webbrowser
+
 import uvicorn
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 from pystray import Icon, Menu, MenuItem
+
 from src.db.database import SessionLocal, init_db
 from src.db.models import AppSetting
 from src.server.app import app
@@ -26,7 +29,6 @@ def get_preferred_port() -> int:
         )
         if setting and setting.value.isdigit():
             return int(setting.value)
-        # Si no existe aún, guardamos 8081 como default
         db.add(AppSetting(key="preferred_port", value="8081"))
         db.commit()
         return 8081
@@ -44,7 +46,6 @@ def find_available_port(start_port: int) -> int:
                 return candidate
             except OSError:
                 continue
-    # Fallback extremo: deja que el SO asigne uno libre
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
@@ -58,11 +59,12 @@ def create_default_icon() -> Image.Image:
 
 
 def start_server(port: int):
-    if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w")
-    if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_config=None, access_log=False)
+    with contextlib.ExitStack() as stack:
+        if sys.stdout is None:
+            sys.stdout = stack.enter_context(open(os.devnull, "w", encoding="utf-8"))
+        if sys.stderr is None:
+            sys.stderr = stack.enter_context(open(os.devnull, "w", encoding="utf-8"))
+        uvicorn.run(app, host="0.0.0.0", port=port, log_config=None, access_log=False)
 
 
 if __name__ == "__main__":
@@ -70,7 +72,6 @@ if __name__ == "__main__":
     preferred = get_preferred_port()
     ACTIVE_PORT = find_available_port(preferred)
 
-    # Guardamos en memoria en FastAPI cuál es el puerto real levantado
     app.state.active_port = ACTIVE_PORT
 
     threading.Thread(target=start_server, args=(ACTIVE_PORT,), daemon=True).start()
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     icon_file = resource_path(os.path.join("resource", "icon.png"))
     try:
         tray_img = Image.open(icon_file)
-    except Exception:
+    except (FileNotFoundError, OSError, UnidentifiedImageError):
         tray_img = create_default_icon()
 
     icon = Icon(

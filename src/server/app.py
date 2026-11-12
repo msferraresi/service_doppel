@@ -1,7 +1,8 @@
+import json
 import os
 import sys
-from datetime import datetime
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.db.database import SessionLocal
 from src.db.models import AppSetting, Endpoint, RequestLog, Scenario, Service
-from src.engine.dispatcher import resolve_scenario, simulate_delay
+from src.engine.dispatcher import render_response_body, resolve_scenario, simulate_delay
 from src.engine.matcher import match_request_endpoint, validate_incoming_payload
 
 app = FastAPI(title="ServiceDoppel")
@@ -20,7 +21,6 @@ def get_index_html_path() -> str:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         base_path = sys._MEIPASS
     else:
-        # Sube 2 niveles desde src/server/app.py hasta la raíz del proyecto
         base_path = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
@@ -35,10 +35,13 @@ def get_db():
         db.close()
 
 
+DbSession = Annotated[Session, Depends(get_db)]
+
+
 # --- Schemas Admin ---
 class ServiceCreate(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class EndpointCreate(BaseModel):
@@ -58,7 +61,7 @@ class EndpointUpdate(BaseModel):
 
 class EndpointModeUpdate(BaseModel):
     mode: str
-    active_scenario_id: Optional[int] = None
+    active_scenario_id: int | None = None
 
 
 class ScenarioCreate(BaseModel):
@@ -76,7 +79,7 @@ class PortSettingUpdate(BaseModel):
 
 # --- Rutas Admin API ---
 @app.get("/_admin/api/settings/port")
-def get_port_settings(request: Request, db: Session = Depends(get_db)):
+def get_port_settings(request: Request, db: DbSession):
     setting = db.query(AppSetting).filter(AppSetting.key == "preferred_port").first()
     preferred = int(setting.value) if setting and setting.value.isdigit() else 8081
     active = getattr(request.app.state, "active_port", preferred)
@@ -84,9 +87,11 @@ def get_port_settings(request: Request, db: Session = Depends(get_db)):
 
 
 @app.put("/_admin/api/settings/port")
-def update_port_settings(data: PortSettingUpdate, db: Session = Depends(get_db)):
+def update_port_settings(data: PortSettingUpdate, db: DbSession):
     if data.preferred_port < 1024 or data.preferred_port > 65535:
-        raise HTTPException(400, "El puerto debe estar entre 1024 y 65535")
+        raise HTTPException(
+            status_code=400, detail="El puerto debe estar entre 1024 y 65535"
+        )
     setting = db.query(AppSetting).filter(AppSetting.key == "preferred_port").first()
     if setting:
         setting.value = str(data.preferred_port)
@@ -97,7 +102,7 @@ def update_port_settings(data: PortSettingUpdate, db: Session = Depends(get_db))
 
 
 @app.get("/_admin/api/services")
-def list_services(db: Session = Depends(get_db)):
+def list_services(db: DbSession):
     services = db.query(Service).all()
     out = []
     for s in services:
@@ -137,9 +142,9 @@ def list_services(db: Session = Depends(get_db)):
 
 
 @app.post("/_admin/api/services")
-def create_service(data: ServiceCreate, db: Session = Depends(get_db)):
+def create_service(data: ServiceCreate, db: DbSession):
     if db.query(Service).filter(Service.name == data.name.strip()).first():
-        raise HTTPException(400, "El servicio ya existe")
+        raise HTTPException(status_code=400, detail="El servicio ya existe")
     svc = Service(name=data.name.strip(), description=data.description)
     db.add(svc)
     db.commit()
@@ -147,7 +152,7 @@ def create_service(data: ServiceCreate, db: Session = Depends(get_db)):
 
 
 @app.delete("/_admin/api/services/{service_id}")
-def delete_service(service_id: int, db: Session = Depends(get_db)):
+def delete_service(service_id: int, db: DbSession):
     svc = db.query(Service).filter(Service.id == service_id).first()
     if svc:
         db.delete(svc)
@@ -156,7 +161,7 @@ def delete_service(service_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/_admin/api/endpoints")
-def create_endpoint(data: EndpointCreate, db: Session = Depends(get_db)):
+def create_endpoint(data: EndpointCreate, db: DbSession):
     path = data.path_pattern.strip()
     if not path.startswith("/"):
         path = "/" + path
@@ -176,12 +181,10 @@ def create_endpoint(data: EndpointCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/_admin/api/endpoints/{endpoint_id}")
-def update_endpoint(
-    endpoint_id: int, data: EndpointUpdate, db: Session = Depends(get_db)
-):
+def update_endpoint(endpoint_id: int, data: EndpointUpdate, db: DbSession):
     ep = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     if not ep:
-        raise HTTPException(404, "Endpoint no encontrado")
+        raise HTTPException(status_code=404, detail="Endpoint no encontrado")
     path = data.path_pattern.strip()
     if not path.startswith("/"):
         path = "/" + path
@@ -196,7 +199,7 @@ def update_endpoint(
 
 
 @app.delete("/_admin/api/endpoints/{endpoint_id}")
-def delete_endpoint(endpoint_id: int, db: Session = Depends(get_db)):
+def delete_endpoint(endpoint_id: int, db: DbSession):
     ep = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     if ep:
         db.delete(ep)
@@ -205,12 +208,10 @@ def delete_endpoint(endpoint_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/_admin/api/endpoints/{endpoint_id}/behavior")
-def update_endpoint_behavior(
-    endpoint_id: int, data: EndpointModeUpdate, db: Session = Depends(get_db)
-):
+def update_endpoint_behavior(endpoint_id: int, data: EndpointModeUpdate, db: DbSession):
     ep = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     if not ep:
-        raise HTTPException(404, "Endpoint no encontrado")
+        raise HTTPException(status_code=404, detail="Endpoint no encontrado")
     ep.mode = data.mode
     if data.active_scenario_id is not None:
         ep.active_scenario_id = data.active_scenario_id
@@ -219,10 +220,10 @@ def update_endpoint_behavior(
 
 
 @app.post("/_admin/api/scenarios")
-def create_scenario(data: ScenarioCreate, db: Session = Depends(get_db)):
+def create_scenario(data: ScenarioCreate, db: DbSession):
     ep = db.query(Endpoint).filter(Endpoint.id == data.endpoint_id).first()
     if not ep:
-        raise HTTPException(404, "Endpoint no encontrado")
+        raise HTTPException(status_code=404, detail="Endpoint no encontrado")
     sc = Scenario(
         endpoint_id=ep.id,
         name=data.name.strip(),
@@ -241,7 +242,7 @@ def create_scenario(data: ScenarioCreate, db: Session = Depends(get_db)):
 
 
 @app.delete("/_admin/api/scenarios/{scenario_id}")
-def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
+def delete_scenario(scenario_id: int, db: DbSession):
     sc = db.query(Scenario).filter(Scenario.id == scenario_id).first()
     if sc:
         db.delete(sc)
@@ -250,20 +251,22 @@ def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/_admin/api/logs")
-def list_logs(limit: int = 50, db: Session = Depends(get_db)):
+def list_logs(db: DbSession, limit: int = 50):
     logs = db.query(RequestLog).order_by(RequestLog.id.desc()).limit(limit).all()
     return [
         {
-            "id": l.id,
-            "received_at": l.received_at.strftime("%H:%M:%S") if l.received_at else "",
-            "method": l.method,
-            "path": l.path,
-            "status": l.response_status,
-            "raw_body": l.raw_body,
-            "form_data": l.form_data,
-            "files_info": l.files_info,
+            "id": log.id,
+            "received_at": (
+                log.received_at.strftime("%H:%M:%S") if log.received_at else ""
+            ),
+            "method": log.method,
+            "path": log.path,
+            "status": log.response_status,
+            "raw_body": log.raw_body,
+            "form_data": log.form_data,
+            "files_info": log.files_info,
         }
-        for l in logs
+        for log in logs
     ]
 
 
@@ -282,9 +285,7 @@ def serve_admin_panel():
 
 # --- Catch-All Router ---
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def catch_all_router(
-    request: Request, full_path: str, db: Session = Depends(get_db)
-):
+async def catch_all_router(request: Request, full_path: str, db: DbSession):
     if full_path.startswith("_admin") or full_path in ["docs", "openapi.json", "redoc"]:
         raise HTTPException(status_code=404)
 
@@ -309,7 +310,7 @@ async def catch_all_router(
         if body_bytes:
             raw_body = body_bytes.decode("utf-8", errors="replace")
 
-    endpoint, _ = match_request_endpoint(db, method, full_path)
+    endpoint, path_params = match_request_endpoint(db, method, full_path)
     if not endpoint:
         return JSONResponse(
             status_code=404,
@@ -324,7 +325,7 @@ async def catch_all_router(
     if not is_valid:
         audit = RequestLog(
             endpoint_id=endpoint.id,
-            received_at=datetime.utcnow(),
+            received_at=datetime.now(UTC),
             method=method,
             path=f"/{full_path}",
             headers=dict(request.headers),
@@ -351,9 +352,25 @@ async def catch_all_router(
             content={"error": "El endpoint no tiene escenarios configurados."},
         )
 
+    incoming_data = {}
+    incoming_data.update(path_params)
+    incoming_data.update(dict(request.query_params))
+    incoming_data.update(form_fields)
+    if raw_body:
+        try:
+            parsed_json = json.loads(raw_body)
+            if isinstance(parsed_json, dict):
+                incoming_data.update(parsed_json)
+        except json.JSONDecodeError:
+            pass
+
+    final_body = render_response_body(
+        scenario.response_body, incoming_data, scenario.status_code
+    )
+
     audit = RequestLog(
         endpoint_id=endpoint.id,
-        received_at=datetime.utcnow(),
+        received_at=datetime.now(UTC),
         method=method,
         path=f"/{full_path}",
         headers=dict(request.headers),
@@ -368,6 +385,4 @@ async def catch_all_router(
     db.commit()
 
     await simulate_delay(scenario.delay_ms)
-    return JSONResponse(
-        status_code=scenario.status_code, content=scenario.response_body
-    )
+    return JSONResponse(status_code=scenario.status_code, content=final_body)
