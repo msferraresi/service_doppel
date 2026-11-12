@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -15,11 +15,18 @@ from sqlalchemy.orm import relationship
 from src.db.database import Base
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key = Column(String(50), primary_key=True)
+    value = Column(String(255), nullable=False)
+
+
 class Service(Base):
     __tablename__ = "services"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(100), unique=True, nullable=False)  # ej: siniestro-reclamo
+    name = Column(String(100), unique=True, nullable=False)
     description = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -33,16 +40,11 @@ class Endpoint(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
-    method = Column(
-        String(10), nullable=False, default="POST"
-    )  # GET, POST, PUT, DELETE
-    path_pattern = Column(
-        String(255), nullable=False
-    )  # ej: /gdr/{nu_ticket}/factura-honorarios
-    mode = Column(String(20), default="fixed")  # "fixed", "random", "header_driven"
-    active_scenario_id = Column(
-        Integer, nullable=True
-    )  # ID del escenario activo si mode="fixed"
+    method = Column(String(10), nullable=False, default="POST")
+    path_pattern = Column(String(255), nullable=False)
+    expected_input = Column(JSON, nullable=True, default=dict)
+    mode = Column(String(20), default="fixed")
+    active_scenario_id = Column(Integer, nullable=True)
 
     service = relationship("Service", back_populates="endpoints")
     scenarios = relationship(
@@ -58,12 +60,10 @@ class Scenario(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     endpoint_id = Column(Integer, ForeignKey("endpoints.id"), nullable=False)
-    name = Column(
-        String(100), nullable=False
-    )  # ej: "success_200", "error_400_falta_reclamo"
+    name = Column(String(100), nullable=False)
     status_code = Column(Integer, default=200)
     delay_ms = Column(Integer, default=0)
-    weight = Column(Float, default=1.0)  # Para modo random
+    weight = Column(Float, default=1.0)
     response_body = Column(JSON, nullable=False, default=dict)
 
     endpoint = relationship("Endpoint", back_populates="scenarios")
@@ -74,14 +74,15 @@ class RequestLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     endpoint_id = Column(Integer, ForeignKey("endpoints.id"), nullable=True)
-    received_at = Column(DateTime, default=datetime.utcnow)
+    received_at = Column(DateTime, default=lambda: datetime.now(UTC))
     method = Column(String(10), nullable=False)
     path = Column(String(255), nullable=False)
     headers = Column(JSON, nullable=True)
     query_params = Column(JSON, nullable=True)
-    form_data = Column(JSON, nullable=True)  # Campos de texto del form
-    files_info = Column(JSON, nullable=True)  # Nombre de archivo PDF, size, mime
-    raw_body = Column(String, nullable=True)  # Si vino JSON crudo
+    form_data = Column(JSON, nullable=True)
+    files_info = Column(JSON, nullable=True)
+    raw_body = Column(String, nullable=True)
     matched_scenario_id = Column(Integer, nullable=True)
+    response_status = Column(Integer, nullable=True)
 
     endpoint = relationship("Endpoint", back_populates="logs")
