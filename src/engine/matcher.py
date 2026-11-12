@@ -1,15 +1,12 @@
+import json
 import re
 from typing import Any, Optional
-
 from sqlalchemy.orm import Session
-
 from src.db.models import Endpoint, Service
 
 
 def pattern_to_regex(pattern: str) -> re.Pattern:
-    """Convierte /gdr/{nu_ticket}/factura-honorarios en regex compatible."""
     cleaned = pattern.strip().strip("/")
-    # Reemplaza {nombre_param} por grupo de captura con nombre
     regex_str = re.sub(r"\{([a-zA-Z0-9_\-]+)\}", r"(?P<\1>[^/]+)", cleaned)
     return re.compile(f"^/?{regex_str}/?$")
 
@@ -17,8 +14,6 @@ def pattern_to_regex(pattern: str) -> re.Pattern:
 def match_request_endpoint(
     db: Session, method: str, requested_path: str
 ) -> tuple[Optional[Endpoint], dict[str, Any]]:
-    """Busca en la base si la ruta y método coinciden con algún endpoint activo."""
-    # Obtenemos los endpoints de servicios activos
     endpoints = (
         db.query(Endpoint)
         .join(Service)
@@ -27,12 +22,59 @@ def match_request_endpoint(
     )
 
     clean_requested = requested_path.strip().strip("/")
-
     for ep in endpoints:
         regex = pattern_to_regex(ep.path_pattern)
         match = regex.match(clean_requested)
         if match:
-            # Devuelve el endpoint y el diccionario de path params (ej: {'nu_ticket': '12048'})
             return ep, match.groupdict()
 
     return None, {}
+
+
+def validate_incoming_payload(
+    endpoint: Endpoint,
+    raw_body: Optional[str],
+    form_fields: dict,
+    files_info: dict,
+    query_params: dict,
+) -> tuple[bool, str]:
+    """Valida que el request entrante cumpla con expected_input configurado en BD."""
+    contract = endpoint.expected_input or {}
+    if not contract:
+        return True, ""
+
+    # Unificamos todos los datos recibidos (JSON body, form fields o query params)
+    received_data = {}
+    received_data.update(query_params)
+    received_data.update(form_fields)
+
+    if raw_body:
+        try:
+            parsed_json = json.loads(raw_body)
+            if isinstance(parsed_json, dict):
+                received_data.update(parsed_json)
+        except json.JSONDecodeError:
+            if contract.get("required_fields"):
+                return (
+                    False,
+                    "Se esperaba un body JSON válido y llegó texto malformado.",
+                )
+
+    # 1. Validar campos obligatorios
+    required_fields = contract.get("required_fields", [])
+    missing = [
+        f
+        for f in required_fields
+        if f not in received_data or received_data[f] in (None, "")
+    ]
+    if missing:
+        return False, f"Faltan parámetros de entrada obligatorios: {', '.join(missing)}"
+
+    # 2. Validar si exige archivo adjunto (ej. PDF en multipart)
+    if contract.get("require_file") and not files_info:
+        return (
+            False,
+            "El endpoint requiere al menos un archivo adjunto (multipart/form-data).",
+        )
+
+    return True, ""
