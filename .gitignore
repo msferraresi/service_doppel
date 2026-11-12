@@ -23,7 +23,7 @@ app.log
 # Compilación y PyInstaller
 build/
 dist/
-*.spec
+!ServiceDoppel.spec
 
 # Testing / Pytest / Cobertura
 .pytest_cache/

@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ServiceDoppel - Control Panel</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --card: #1e293b;
+        --border: #334155;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --primary: #0284c7;
+        --success: #10b981;
+        --danger: #e11d48;
+        --warn: #d97706;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 25px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .port-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .port-box input {
+        width: 75px;
+        margin: 0;
+        padding: 5px;
+        text-align: center;
+      }
+      h1,
+      h2,
+      h3 {
+        color: var(--accent);
+        margin-top: 0;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 20px;
+      }
+      .tab-btn {
+        background: none;
+        border: none;
+        color: var(--muted);
+        padding: 10px 18px;
+        font-weight: bold;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        font-size: 15px;
+      }
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px;
+        background: #0f172a;
+        border: 1px solid var(--border);
+        color: #fff;
+        border-radius: 4px;
+        box-sizing: border-box;
+        margin-top: 4px;
+      }
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        margin-top: 12px;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      .btn-sm {
+        padding: 4px 8px;
+        font-size: 11px;
+        margin-top: 0;
+      }
+      .btn-danger {
+        background: var(--danger);
+      }
+      .btn-warn {
+        background: var(--warn);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        table-layout: fixed;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+        vertical-align: top;
+        word-wrap: break-word;
+      }
+      th {
+        background: #0f172a;
+        color: var(--muted);
+      }
+      .badge {
+        padding: 3px 7px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+      }
+      .bg-200 {
+        background: #065f46;
+        color: #6ee7b7;
+      }
+      .bg-400 {
+        background: #9f1239;
+        color: #fda4af;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: #0f172a;
+        margin: 3px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .pill.active {
+        border-color: var(--success);
+        background: #064e3b;
+      }
+      .mode-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .mode-btn {
+        padding: 4px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        background: #0f172a;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        margin-top: 0;
+      }
+      .mode-btn.selected {
+        background: var(--accent);
+        color: #0f172a;
+        border-color: var(--accent);
+      }
+      pre {
+        background: #050b14;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        margin: 0;
+        max-height: 150px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      /* Modal de Edición */
+      .modal-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal-backdrop.open {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 24px;
+        width: 480px;
+        max-width: 92%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header-bar">
+        <h1 style="margin: 0">🎭 ServiceDoppel</h1>
+        <div class="port-box">
+          <span
+            >Puerto activo:
+            <strong id="activePortBadge" style="color: var(--success)"
+              >...</strong
+            ></span
+          >
+          <span style="color: var(--border)">|</span>
+          <span>Preferido:</span>
+          <input type="number" id="prefPortInput" min="1024" max="65535" />
+          <button class="btn-sm" onclick="savePort()">Guardar</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-board', this)">
+          🎛️ Endpoints y Control
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-config', this)">
+          ➕ Nuevo Servicio / Endpoint
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-logs', this)">
+          🕵️ Monitor de Tráfico
+        </button>
+      </div>
+
+      <!-- TAB 1: LISTA DE ENDPOINTS Y CONTROL EN VIVO -->
+      <div id="tab-board" class="tab-content active">
+        <div id="boardContainer">Cargando...</div>
+      </div>
+
+      <!-- TAB 2: ALTAS -->
+      <div id="tab-config" class="tab-content">
+        <div class="grid-2">
+          <div class="card">
+            <h3>1. Nuevo Microservicio</h3>
+            <label>Nombre (ej: siniestro-reclamo):</label>
+            <input type="text" id="svc_name" placeholder="siniestro-reclamo" />
+            <label>Descripción:</label>
+            <input
+              type="text"
+              id="svc_desc"
+              placeholder="Servicio de reclamos"
+            />
+            <button onclick="addService()">Guardar Servicio</button>
+          </div>
+          <div class="card">
+            <h3>2. Nuevo Endpoint y Contrato de Entrada</h3>
+            <label>Servicio:</label>
+            <select id="ep_svc"></select>
+            <div class="grid-2">
+              <div>
+                <label>Método:</label>
+                <select id="ep_method">
+                  <option>POST</option>
+                  <option>GET</option>
+                  <option>PUT</option>
+                  <option>DELETE</option>
+                </select>
+              </div>
+              <div>
+                <label>Ruta (ej: /gdr/terceros/patrocinios):</label>
+                <input
+                  type="text"
+                  id="ep_path"
+                  placeholder="/gdr/terceros/patrocinios"
+                />
+              </div>
+            </div>
+            <label
+              >Parámetros obligatorios en entrada (separados por coma):</label
+            >
+            <input
+              type="text"
+              id="ep_req_fields"
+              placeholder="ej: nro_ticket, tipo_persona (vacío si no exige)"
+            />
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                margin-top: 12px;
+              "
+            >
+              <input type="checkbox" id="ep_req_file" style="width: auto" />
+              Exigir archivo adjunto (multipart PDF)
+            </label>
+            <button onclick="addEndpoint()">Guardar Endpoint</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>3. Agregar Respuesta / Escenario (200, 400, 500...)</h3>
+          <div class="grid-2">
+            <div>
+              <label>Endpoint:</label>
+              <select id="sc_ep"></select>
+              <label>Nombre identificador:</label>
+              <input
+                type="text"
+                id="sc_name"
+                placeholder="ej: Respuesta OK 200 o Error Falta Reclamo"
+              />
+              <div class="grid-2">
+                <div>
+                  <label>HTTP Status Code:</label>
+                  <input type="number" id="sc_status" value="200" />
+                </div>
+                <div>
+                  <label>Delay (ms):</label>
+                  <input type="number" id="sc_delay" value="0" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label>Payload JSON de Respuesta:</label>
+              <textarea
+                id="sc_body"
+                rows="8"
+                placeholder='{\n  "resultado": "OK"\n}'
+              ></textarea>
+            </div>
+          </div>
+          <button onclick="addScenario()">Guardar Respuesta</button>
+        </div>
+      </div>
+
+      <!-- TAB 3: MONITOR -->
+      <div id="tab-logs" class="tab-content">
+        <div class="card">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h3>📥 Últimas Peticiones Recibidas</h3>
+            <button class="btn-sm" onclick="loadLogs()">Refrescar</button>
+          </div>
+          <div id="logsContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE EDICIÓN DE ENDPOINT -->
+    <div id="editModal" class="modal-backdrop">
+      <div class="modal-box">
+        <h3>✏️ Editar Endpoint</h3>
+        <input type="hidden" id="edit_ep_id" />
+        <label>Método HTTP:</label>
+        <select id="edit_ep_method">
+          <option>POST</option>
+          <option>GET</option>
+          <option>PUT</option>
+          <option>DELETE</option>
+        </select>
+        <label>Ruta Patrón:</label>
+        <input type="text" id="edit_ep_path" />
+        <label>Parámetros obligatorios (separados por coma):</label>
+        <input type="text" id="edit_ep_fields" />
+        <label
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+          "
+        >
+          <input type="checkbox" id="edit_ep_file" style="width: auto" /> Exigir
+          archivo adjunto (multipart)
+        </label>
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 18px;
+          "
+        >
+          <button style="background: #475569" onclick="closeEditModal()">
+            Cancelar
+          </button>
+          <button onclick="saveEndpointEdit()">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let servicesData = [];
+
+      function switchTab(id, btn) {
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((e) => e.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((e) => e.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        btn.classList.add("active");
+        if (id === "tab-board") loadAll();
+        if (id === "tab-logs") loadLogs();
+      }
+
+      function loadPortInfo() {
+        fetch("/_admin/api/settings/port")
+          .then((r) => r.json())
+          .then((d) => {
+            document.getElementById("activePortBadge").innerText =
+              `localhost:${d.active_port}`;
+            document.getElementById("prefPortInput").value = d.preferred_port;
+          });
+      }
+
+      function savePort() {
+        const p = parseInt(document.getElementById("prefPortInput").value);
+        if (!p || p < 1024 || p > 65535)
+          return alert("Puerto inválido (1024 - 65535)");
+        fetch("/_admin/api/settings/port", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preferred_port: p }),
+        }).then(() =>
+          alert(
+            "Puerto preferido guardado. Se aplicará la próxima vez que reinicies ServiceDoppel.",
+          ),
+        );
+      }
+
+      function loadAll() {
+        loadPortInfo();
+        fetch("/_admin/api/services")
+          .then((r) => r.json())
+          .then((data) => {
+            servicesData = data;
+            renderBoard();
+            fillSelects();
+          });
+      }
+
+      function renderBoard() {
+        const div = document.getElementById("boardContainer");
+        if (!servicesData.length) {
+          div.innerHTML =
+            '<div class="card"><p>No hay servicios cargados. Ve a <strong>Nuevo Servicio / Endpoint</strong> para dar de alta tu primer mock.</p></div>';
+          return;
+        }
+        let html = "";
+        servicesData.forEach((s) => {
+          html += `<div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>📦 ${s.name} <small style="color:var(--muted); font-size:13px;">${s.description || ""}</small></h2>
+                    <button class="btn-sm btn-danger" onclick="delService(${s.id})">Eliminar Servicio</button>
+                </div>`;
+          if (!s.endpoints.length) {
+            html +=
+              '<p style="color:var(--muted);">Sin endpoints configurados.</p>';
+          } else {
+            html +=
+              '<table><tr><th style="width:32%;">Endpoint & Contrato Entrada</th><th style="width:24%;">Modo de Respuesta</th><th style="width:44%;">Respuestas Configuradas</th></tr>';
+            s.endpoints.forEach((ep) => {
+              const reqFields = (ep.expected_input.required_fields || []).join(
+                ", ",
+              );
+              const reqFile = ep.expected_input.require_file
+                ? " + Archivo Adjunto"
+                : "";
+              const contractTxt =
+                reqFields || reqFile
+                  ? `Exige: <code>${reqFields}${reqFile}</code>`
+                  : '<span style="color:var(--muted);">Sin validación de entrada</span>';
+
+              let pills = "";
+              ep.scenarios.forEach((sc) => {
+                const active =
+                  ep.mode === "fixed" && sc.id === ep.active_scenario_id;
+                const badgeCls = sc.status_code >= 400 ? "bg-400" : "bg-200";
+                pills += `<div class="pill ${active ? "active" : ""}" onclick="setBehavior(${ep.id}, 'fixed', ${sc.id})">
+                            <span class="badge ${badgeCls}">${sc.status_code}</span>
+                            <span>${sc.name}</span>
+                            ${active ? "✅" : ""}
+                            <span style="color:#f87171; margin-left:4px;" onclick="event.stopPropagation(); delScenario(${sc.id})">✕</span>
+                        </div>`;
+              });
+
+              html += `<tr>
+                        <td>
+                            <strong>[${ep.method}]</strong> <code>${ep.path_pattern}</code><br>
+                            <small>${contractTxt}</small>
+                            <div style="margin-top:8px; display:flex; gap:6px;">
+                                <button class="btn-sm btn-warn" onclick='openEditModal(${JSON.stringify(ep)})'>✏️ Editar</button>
+                                <button class="btn-sm btn-danger" onclick="delEndpoint(${ep.id})">🗑️ Borrar</button>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="mode-bar">
+                                <button class="mode-btn ${ep.mode === "fixed" ? "selected" : ""}" onclick="setBehavior(${ep.id}, 'fixed', ${ep.active_scenario_id})">🎯 Fijo</button>
+                                <button class="mode-btn ${ep.mode === "errors_only" ? "selected" : ""}" onclick="setBehavior(${ep.id}, 'errors_only', null)">💥 Errores</button>
+                                <button class="mode-btn ${ep.mode === "random" ? "selected" : ""}" onclick="setBehavior(${ep.id}, 'random', null)">🎲 Random</button>
+                            </div>
+                            <small style="color:var(--muted);">
+                                ${ep.mode === "fixed" ? "Devuelve siempre el escenario con ✅" : ""}
+                                ${ep.mode === "errors_only" ? "Alterna solo entre status >= 400" : ""}
+                                ${ep.mode === "random" ? "Alterna aleatoriamente entre todos" : ""}
+                            </small>
+                        </td>
+                        <td>${pills || '<em style="color:var(--muted);">Agrega respuestas en la pestaña Nuevo Servicio</em>'}</td>
+                    </tr>`;
+            });
+            html += "</table>";
+          }
+          html += "</div>";
+        });
+        div.innerHTML = html;
+      }
+
+      function openEditModal(ep) {
+        document.getElementById("edit_ep_id").value = ep.id;
+        document.getElementById("edit_ep_method").value = ep.method;
+        document.getElementById("edit_ep_path").value = ep.path_pattern;
+        document.getElementById("edit_ep_fields").value = (
+          ep.expected_input.required_fields || []
+        ).join(", ");
+        document.getElementById("edit_ep_file").checked =
+          !!ep.expected_input.require_file;
+        document.getElementById("editModal").classList.add("open");
+      }
+
+      function closeEditModal() {
+        document.getElementById("editModal").classList.remove("open");
+      }
+
+      function saveEndpointEdit() {
+        const id = document.getElementById("edit_ep_id").value;
+        const reqFields = document
+          .getElementById("edit_ep_fields")
+          .value.split(",")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        fetch(`/_admin/api/endpoints/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            method: document.getElementById("edit_ep_method").value,
+            path_pattern: document.getElementById("edit_ep_path").value,
+            required_fields: reqFields,
+            require_file: document.getElementById("edit_ep_file").checked,
+          }),
+        }).then(() => {
+          closeEditModal();
+          loadAll();
+        });
+      }
+
+      function fillSelects() {
+        const sSel = document.getElementById("ep_svc");
+        const eSel = document.getElementById("sc_ep");
+        sSel.innerHTML = "";
+        eSel.innerHTML = "";
+        servicesData.forEach((s) => {
+          sSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+          s.endpoints.forEach((ep) => {
+            eSel.innerHTML += `<option value="${ep.id}">${s.name} -> [${ep.method}] ${ep.path_pattern}</option>`;
+          });
+        });
+      }
+
+      function setBehavior(epId, mode, scId) {
+        fetch(`/_admin/api/endpoints/${epId}/behavior`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: mode, active_scenario_id: scId }),
+        }).then(() => loadAll());
+      }
+
+      function addService() {
+        const name = document.getElementById("svc_name").value.trim();
+        if (!name) return alert("Ingresa un nombre");
+        fetch("/_admin/api/services", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            description: document.getElementById("svc_desc").value,
+          }),
+        }).then(() => {
+          document.getElementById("svc_name").value = "";
+          document.getElementById("svc_desc").value = "";
+          loadAll();
+          alert("Servicio creado");
+        });
+      }
+
+      function addEndpoint() {
+        const reqFields = document
+          .getElementById("ep_req_fields")
+          .value.split(",")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        fetch("/_admin/api/endpoints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            service_id: parseInt(document.getElementById("ep_svc").value),
+            method: document.getElementById("ep_method").value,
+            path_pattern: document.getElementById("ep_path").value,
+            required_fields: reqFields,
+            require_file: document.getElementById("ep_req_file").checked,
+          }),
+        }).then(() => {
+          document.getElementById("ep_path").value = "";
+          document.getElementById("ep_req_fields").value = "";
+          document.getElementById("ep_req_file").checked = false;
+          loadAll();
+          alert("Endpoint creado");
+        });
+      }
+
+      function addScenario() {
+        let bodyObj = {};
+        try {
+          const raw = document.getElementById("sc_body").value.trim();
+          bodyObj = raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          return alert("JSON inválido en Response Body");
+        }
+
+        fetch("/_admin/api/scenarios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint_id: parseInt(document.getElementById("sc_ep").value),
+            name: document.getElementById("sc_name").value,
+            status_code:
+              parseInt(document.getElementById("sc_status").value) || 200,
+            delay_ms: parseInt(document.getElementById("sc_delay").value) || 0,
+            response_body: bodyObj,
+          }),
+        }).then(() => {
+          document.getElementById("sc_name").value = "";
+          document.getElementById("sc_body").value = "";
+          loadAll();
+          alert("Respuesta agregada");
+        });
+      }
+
+      function delService(id) {
+        if (confirm("¿Borrar servicio y todos sus endpoints?"))
+          fetch(`/_admin/api/services/${id}`, { method: "DELETE" }).then(
+            loadAll,
+          );
+      }
+      function delEndpoint(id) {
+        if (confirm("¿Borrar este endpoint?"))
+          fetch(`/_admin/api/endpoints/${id}`, { method: "DELETE" }).then(
+            loadAll,
+          );
+      }
+      function delScenario(id) {
+        if (confirm("¿Borrar escenario?"))
+          fetch(`/_admin/api/scenarios/${id}`, { method: "DELETE" }).then(
+            loadAll,
+          );
+      }
+
+      function formatPayload(raw, formData) {
+        if (raw) {
+          try {
+            return JSON.stringify(JSON.parse(raw), null, 2);
+          } catch (e) {
+            return raw;
+          }
+        }
+        if (formData) {
+          return JSON.stringify(formData, null, 2);
+        }
+        return "-";
+      }
+
+      function loadLogs() {
+        fetch("/_admin/api/logs")
+          .then((r) => r.json())
+          .then((logs) => {
+            const c = document.getElementById("logsContainer");
+            if (!logs.length) {
+              c.innerHTML = "<p>Sin tráfico registrado aún.</p>";
+              return;
+            }
+            let h = `<table>
+                <tr>
+                    <th style="width: 8%;">Hora</th>
+                    <th style="width: 8%;">Status</th>
+                    <th style="width: 26%;">Endpoint</th>
+                    <th style="width: 40%;">Body / Form</th>
+                    <th style="width: 18%;">Archivos</th>
+                </tr>`;
+            logs.forEach((l) => {
+              const cls = l.status >= 400 ? "bg-400" : "bg-200";
+              const bodyFormatted = formatPayload(l.raw_body, l.form_data);
+              const filesFormatted = l.files_info
+                ? JSON.stringify(l.files_info, null, 2)
+                : "-";
+              h += `<tr>
+                    <td>${l.received_at}</td>
+                    <td><span class="badge ${cls}">${l.status}</span></td>
+                    <td><strong>[${l.method}]</strong> <code>${l.path}</code></td>
+                    <td><pre>${bodyFormatted}</pre></td>
+                    <td><pre>${filesFormatted}</pre></td>
+                </tr>`;
+            });
+            c.innerHTML = h + "</table>";
+          });
+      }
+
+      window.onload = loadAll;
+    </script>
+  </body>
+</html>
