@@ -33,7 +33,7 @@ Funciona como una aplicación de escritorio liviana en segundo plano alojada en 
 ## 📂 Estructura del Proyecto
 
 ```text
-msferraresi-service_doppel/
+service_doppel/
 ├── main.py                  # Punto de entrada: inicializa SQLite, Uvicorn y System Tray
 ├── ServiceDoppel.spec       # Configuración de empaquetado para PyInstaller
 ├── requirements.txt         # Dependencias del proyecto
